@@ -4,20 +4,14 @@ export default function Hero() {
   return (
     <header
       id="home"
-      className="hero-section relative isolate h-[100svh] min-h-[480px] flex flex-col items-center justify-end text-center px-4 pt-8 pb-8 overflow-hidden bg-[#493932] sm:px-5 sm:pb-10"
+      className="hero-section relative isolate top-0 m-0 h-screen min-h-screen flex flex-col items-center justify-end text-center p-0 overflow-hidden bg-[#493932]"
     >
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 z-0 scale-105 bg-cover bg-center blur-xl"
-        style={{ backgroundImage: `url(${heroPhoto})` }}
-      />
-
       <img
         src={heroPhoto}
         alt="A wedding portrait of the couple"
         fetchPriority="high"
         decoding="async"
-        className="absolute inset-y-0 left-1/2 z-10 h-full w-full -translate-x-1/2 object-contain"
+        className="absolute top-0 left-0 z-10 w-full h-full object-cover object-top"
       />
 
       <div
@@ -31,7 +25,7 @@ export default function Hero() {
         }}
       />
 
-      <div className="relative z-30 w-full animate-[fadeUp_1.1s_ease_0.2s_both]">
+      <div className="relative z-30 w-full px-4 pb-8 sm:pb-10 animate-[fadeUp_1.1s_ease_0.2s_both]">
         <div className="font-script tracking-[4px] uppercase text-pink-100 text-[10px] mb-3 sm:tracking-[6px] sm:text-xs [text-shadow:0_2px_12px_rgba(0,0,0,0.35)]">
           Together with their families
         </div>
