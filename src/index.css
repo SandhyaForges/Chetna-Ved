@@ -1,0 +1,159 @@
+@import url("https://fonts.googleapis.com/css2?family=Italiana&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Marcellus&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Lucy";
+  src: url("/lucy.ttf") format("truetype");
+}
+
+.lucy {
+  font-family: "Lucy";
+}
+
+.hero-section {
+  min-height: 100vh;
+  min-height: 100svh;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background-color: #faebff;
+  color: #553830;
+  font-family: "Marcellus", serif;
+  overflow-x: hidden;
+  background-image: url('/bgg.svg');
+  background-repeat: repeat;
+  background-size: 220px 220px;
+  min-height: 100vh;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+p,
+h1,
+h2,
+h3,
+span,
+div {
+  word-break: break-word;
+}
+
+::selection {
+  background: #c9767a;
+  color: #fbf3ea;
+}
+
+/* petal shape (not a plain rectangle, so custom class) */
+.petal {
+  position: absolute;
+  top: -5%;
+  width: 10px;
+  height: 12px;
+  background: linear-gradient(135deg, #e3c483, #e9b9b6);
+  border-radius: 0 100% 0 100%;
+  opacity: 0.7;
+}
+
+/* section reveal-on-scroll */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.9s ease, transform 0.9s ease;
+}
+
+.reveal.in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* decorative ring double-border used in countdown */
+.ring-inner::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(201, 161, 90, 0.35);
+  border-radius: 9999px;
+}
+
+/* keyframes referenced via Tailwind arbitrary animate-[...] utilities */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeDown {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    background-size: 180px 180px;
+  }
+
+  .reveal {
+    transition-duration: 0.7s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.torn-photo {
+  position: relative;
+  isolation: isolate;
+  background: #f8eee2;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Cdefs%3E%3Cfilter id='rough' x='-10%25' y='-10%25' width='120%25' height='120%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.055' numOctaves='3' seed='18' result='noise'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='noise' scale='30' xChannelSelector='R' yChannelSelector='G' result='displaced'/%3E%3CfeGaussianBlur in='displaced' stdDeviation='1.5'/%3E%3C/filter%3E%3C/defs%3E%3Crect x='8' y='8' width='584' height='584' rx='2' fill='white' filter='url(%23rough)'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Cdefs%3E%3Cfilter id='rough' x='-10%25' y='-10%25' width='120%25' height='120%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.055' numOctaves='3' seed='18' result='noise'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='noise' scale='30' xChannelSelector='R' yChannelSelector='G' result='displaced'/%3E%3CfeGaussianBlur in='displaced' stdDeviation='1.5'/%3E%3C/filter%3E%3C/defs%3E%3Crect x='8' y='8' width='584' height='584' rx='2' fill='white' filter='url(%23rough)'/%3E%3C/svg%3E");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+
+.torn-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
