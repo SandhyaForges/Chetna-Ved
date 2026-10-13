@@ -3,6 +3,9 @@ import SectionHead from "./SectionHead";
 
 const IMAGES_PER_PAGE = 24;
 
+// 1. Fetching the remote storage base URL from Vercel's environment variables
+const STORAGE_BASE_URL = import.meta.env.VITE_GALLERY_BASE_URL || "/";
+
 const GALLERIES = {
   wedding: {
     label: "Wedding",
@@ -10,6 +13,7 @@ const GALLERIES = {
   },
 };
 
+// Keep small thumbnails local in your repository so they bundle quickly
 const thumbnailImages = import.meta.glob(
   "../../image/wedding/thumbnails/*.webp",
   {
@@ -18,13 +22,8 @@ const thumbnailImages = import.meta.glob(
   }
 );
 
-const fullImages = import.meta.glob(
-  "../../image/wedding/full/*.webp",
-  {
-    query: "?url",
-    import: "default",
-  }
-);
+// ❌ REMOVED: import.meta.glob for full-size images is completely gone.
+// Vite will no longer track or package the heavy originals.
 
 const buildImages = (gallery) => {
   const { directory } = GALLERIES[gallery];
@@ -35,16 +34,16 @@ const buildImages = (gallery) => {
     .sort((a, b) => {
       const aId = Number(a.slice(prefix.length).replace(".webp", ""));
       const bId = Number(b.slice(prefix.length).replace(".webp", ""));
-
       return aId - bId;
     })
     .map((thumbKey) => {
-      const filename = thumbKey.slice(prefix.length);
+      const filename = thumbKey.slice(prefix.length); // e.g., "1.webp"
 
       return {
         id: Number(filename.replace(".webp", "")),
         thumbKey,
-        fullKey: `../../image/${directory}/full/${filename}`,
+        // ⚡ Dynamically maps to external storage using the Vercel Env Variable
+        fullUrl: `${STORAGE_BASE_URL}${directory}/full/${filename}`,
       };
     });
 };
@@ -57,6 +56,7 @@ export default function Gallery() {
   const [imageSizes, setImageSizes] = useState({});
   const [columnCount, setColumnCount] = useState(6);
 
+  // Handle responsive masonry layout columns based on screen width
   useEffect(() => {
     const updateColumns = () => {
       if (window.innerWidth < 640) {
@@ -72,7 +72,6 @@ export default function Gallery() {
 
     updateColumns();
     window.addEventListener("resize", updateColumns);
-
     return () => window.removeEventListener("resize", updateColumns);
   }, []);
 
@@ -84,12 +83,14 @@ export default function Gallery() {
   const visibleImages = allImages.slice(0, visibleCount);
   const allLoaded = visibleCount >= allImages.length;
 
+  // Reset gallery state when switching tabs
   useEffect(() => {
     setVisibleCount(IMAGES_PER_PAGE);
     setLoadedImages({});
     setImageSizes({});
   }, [activeGallery]);
 
+  // Handle lazy-loading and dimensions gathering for thumbnails
   useEffect(() => {
     let cancelled = false;
 
@@ -103,15 +104,12 @@ export default function Gallery() {
       const results = await Promise.all(
         missingImages.map(async (image) => {
           const loader = thumbnailImages[image.thumbKey];
-
           if (!loader) return null;
 
           try {
             const url = await loader();
-
             return new Promise((resolve) => {
               const img = new Image();
-
               img.onload = () =>
                 resolve({
                   image,
@@ -119,15 +117,8 @@ export default function Gallery() {
                   width: img.naturalWidth,
                   height: img.naturalHeight,
                 });
-
               img.onerror = () =>
-                resolve({
-                  image,
-                  url,
-                  width: 0,
-                  height: 0,
-                });
-
+                resolve({ image, url, width: 0, height: 0 });
               img.src = url;
             });
           } catch {
@@ -141,76 +132,50 @@ export default function Gallery() {
       const nextImages = {};
       const nextSizes = {};
 
-      results.filter(Boolean).forEach(
-        ({ image, url, width, height }) => {
-          nextImages[image.thumbKey] = url;
-
-          if (width && height) {
-            nextSizes[image.thumbKey] = {
-              width,
-              height,
-            };
-          }
+      results.filter(Boolean).forEach(({ image, url, width, height }) => {
+        nextImages[image.thumbKey] = url;
+        if (width && height) {
+          nextSizes[image.thumbKey] = { width, height };
         }
-      );
+      });
 
       if (Object.keys(nextImages).length) {
-        setLoadedImages((current) => ({
-          ...current,
-          ...nextImages,
-        }));
+        setLoadedImages((current) => ({ ...current, ...nextImages }));
       }
-
       if (Object.keys(nextSizes).length) {
-        setImageSizes((current) => ({
-          ...current,
-          ...nextSizes,
-        }));
+        setImageSizes((current) => ({ ...current, ...nextSizes }));
       }
     };
 
     loadVisibleImages();
+    return () => { cancelled = true; };
+  }, [visibleCount, activeGallery, visibleImages, loadedImages]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [visibleCount, activeGallery]);
-
+  // Distribute items into columns evenly based on height ratios
   const columns = useMemo(() => {
     const result = Array.from({ length: columnCount }, () => []);
     const columnHeights = Array(columnCount).fill(0);
-
     const containerWidth = 1400;
     const gap = 4;
-
-    const columnWidth =
-      (containerWidth - gap * (columnCount - 1)) / columnCount;
+    const columnWidth = (containerWidth - gap * (columnCount - 1)) / columnCount;
 
     visibleImages.forEach((image) => {
       const size = imageSizes[image.thumbKey];
-
       let estimatedHeight = columnWidth;
 
       if (size?.width && size?.height) {
-        estimatedHeight =
-          columnWidth * (size.height / size.width);
+        estimatedHeight = columnWidth * (size.height / size.width);
       }
 
       let shortestColumn = 0;
-
       for (let i = 1; i < columnCount; i++) {
-        if (
-          columnHeights[i] <
-          columnHeights[shortestColumn]
-        ) {
+        if (columnHeights[i] < columnHeights[shortestColumn]) {
           shortestColumn = i;
         }
       }
 
       result[shortestColumn].push(image);
-
-      columnHeights[shortestColumn] +=
-        estimatedHeight + gap;
+      columnHeights[shortestColumn] += estimatedHeight + gap;
     });
 
     return result;
@@ -218,38 +183,24 @@ export default function Gallery() {
 
   const handleLoadMore = () => {
     setVisibleCount((current) =>
-      Math.min(
-        current + IMAGES_PER_PAGE,
-        allImages.length
-      )
+      Math.min(current + IMAGES_PER_PAGE, allImages.length)
     );
   };
 
   const handleCollapse = () => {
     setVisibleCount(IMAGES_PER_PAGE);
-
     document.getElementById("gallery")?.scrollIntoView({
       behavior: "smooth",
       block: "start",
     });
   };
 
-  const openImage = async (image) => {
-    const loader = fullImages[image.fullKey];
-
-    if (!loader) {
-      console.error(`Wedding image is missing: ${image.fullKey}`);
-      return;
-    }
-
-    try {
-      const fullUrl = await loader();
-      setSelectedImage(fullUrl);
-    } catch (error) {
-      console.error(`Failed to load wedding image: ${image.fullKey}`, error);
-    }
+  // Loads the cloud storage photo string natively on click
+  const openImage = (image) => {
+    setSelectedImage(image.fullUrl);
   };
 
+  // Lock scroll background and manage escape keys when Lightbox is active
   useEffect(() => {
     if (!selectedImage) return undefined;
 
@@ -268,14 +219,8 @@ export default function Gallery() {
   }, [selectedImage]);
 
   return (
-    <section
-      id="gallery"
-      className="px-4 sm:px-6 lg:px-[6vw] py-16 scroll-mt-24"
-    >
-      <SectionHead
-        kicker="Moments That Last Forever"
-        title="Our Best Moments"
-      />
+    <section id="gallery" className="px-4 sm:px-6 lg:px-[6vw] py-16 scroll-mt-24">
+      <SectionHead kicker="Moments That Last Forever" title="Our Best Moments" />
 
       {/* Gallery Pills */}
       <div className="flex justify-center items-center gap-3 sm:gap-4 mb-10">
@@ -289,39 +234,33 @@ export default function Gallery() {
               : "bg-[#FBF4E7] border-[#8A6048] text-[#5B3A29] hover:bg-[#EAD8BD]"
           }`}
         >
-          <span className="relative z-10">
-            💍 Wedding
-          </span>
+          <span className="relative z-10">💍 Wedding</span>
         </button>
-
       </div>
 
-      {/* Masonry Gallery */}
+      {/* Masonry Gallery Grid */}
       <div className="max-w-[1400px] mx-auto flex gap-1 items-start">
         {columns.map((column, columnIndex) => (
-          <div
-            key={columnIndex}
-            className="flex-1 min-w-0 flex flex-col gap-1"
-          >
+          <div key={columnIndex} className="flex-1 min-w-0 flex flex-col gap-1">
             {column.map((image) => {
               const src = loadedImages[image.thumbKey];
-
               return (
                 <button
                   type="button"
                   key={image.id}
                   aria-label={`Open wedding memory ${image.id}`}
-                  className="relative block w-full overflow-hidden rounded-md bg-gray-100 text-left"
+                  className="relative block w-full overflow-hidden rounded-md bg-gray-100 text-left aspect-auto"
                   onClick={() => openImage(image)}
                 >
-                  {src && (
+                  {src ? (
                     <img
                       src={src}
-                      alt={`${GALLERIES[activeGallery].label} memory ${image.id}`}
-                      className="block w-full h-auto transition-transform duration-300 hover:scale-[1.02]"
+                      alt={`Wedding memory ${image.id}`}
+                      className="w-full h-auto object-cover transition-transform duration-500 hover:scale-105"
                       loading="lazy"
-                      decoding="async"
                     />
+                  ) : (
+                    <div className="w-full bg-gray-200 animate-pulse aspect-square" />
                   )}
                 </button>
               );
@@ -330,55 +269,50 @@ export default function Gallery() {
         ))}
       </div>
 
-      {/* Load More / Collapse */}
-      {allImages.length > IMAGES_PER_PAGE && (
-        <div className="flex justify-center pt-12 pb-5">
-          {!allLoaded ? (
-            <button
-              onClick={handleLoadMore}
-              className="px-8 py-3 rounded-full border border-[#8A6048] text-[#5B3A29] font-script tracking-[2px] uppercase text-[12.5px] transition-all duration-300 hover:bg-[#5B3A29] hover:text-[#F5DFA7] hover:shadow-[0_10px_24px_rgba(91,58,41,0.30)]"
-            >
-              Load More ♥
-            </button>
-          ) : (
-            <button
-              onClick={handleCollapse}
-              className="px-8 py-3 rounded-full border border-[#8A6048] text-[#5B3A29] font-script tracking-[2px] uppercase text-[12.5px] transition-all duration-300 hover:bg-[#5B3A29] hover:text-[#F5DFA7] hover:shadow-[0_10px_24px_rgba(91,58,41,0.30)]"
-            >
-              Collapse ♥
-            </button>
-          )}
-        </div>
-      )}
+      {/* Pagination Controls */}
+      <div className="flex justify-center mt-12 gap-4">
+        {!allLoaded && (
+          <button
+            type="button"
+            onClick={handleLoadMore}
+            className="px-6 py-3 bg-[#5B3A29] text-white rounded-full font-medium hover:bg-[#4A2F22] transition-colors duration-300"
+          >
+            Load More
+          </button>
+        )}
+        {visibleCount > IMAGES_PER_PAGE && (
+          <button
+            type="button"
+            onClick={handleCollapse}
+            className="px-6 py-3 border border-[#5B3A29] text-[#5B3A29] rounded-full font-medium hover:bg-[#FBF4E7] transition-colors duration-300"
+          >
+            Collapse
+          </button>
+        )}
+      </div>
 
-      {/* Full Image Viewer */}
+      {/* Full Screen Lightbox Modal */}
       {selectedImage && (
         <div
-          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-3 sm:p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setSelectedImage(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Wedding photo viewer"
         >
-          <div
-            className="relative max-w-5xl max-h-[92vh] w-full flex items-center justify-center"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
+          <button
+            type="button"
+            className="absolute top-6 right-6 text-white text-3xl font-light hover:text-gray-300 focus:outline-none"
+            onClick={() => setSelectedImage(null)}
+            aria-label="Close modal"
           >
-            <button
-              type="button"
-              aria-label="Close photo viewer"
-              className="absolute top-2 right-2 sm:top-3 sm:right-3 text-white bg-black/50 p-2 sm:p-3 rounded-full hover:bg-black/70 transition z-10"
-              onClick={() => setSelectedImage(null)}
-            >
-              ✕
-            </button>
-
+            &times;
+          </button>
+          <div 
+            className="relative max-w-5xl max-h-[90vh] flex items-center justify-center" 
+            onClick={(e) => e.stopPropagation()}
+          >
             <img
               src={selectedImage}
-              alt="Selected wedding memory"
-              className="object-contain max-h-[88vh] max-w-full rounded shadow-lg"
+              alt="Expanded wedding memory"
+              className="max-w-full max-h-[85vh] object-contain rounded shadow-2xl"
             />
           </div>
         </div>
